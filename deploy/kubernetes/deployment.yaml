@@ -1,0 +1,83 @@
+# ServiceAccount for the WAF log tailer
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: coraza-sentry-log-forwarder
+  namespace: envoy-gateway-system
+---
+# Role: read pods and pod logs in envoy-gateway-system
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: coraza-sentry-log-forwarder
+  namespace: envoy-gateway-system
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: coraza-sentry-log-forwarder
+  namespace: envoy-gateway-system
+subjects:
+  - kind: ServiceAccount
+    name: coraza-sentry-log-forwarder
+    namespace: envoy-gateway-system
+roleRef:
+  kind: Role
+  name: coraza-sentry-log-forwarder
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coraza-sentry-log-forwarder
+  namespace: envoy-gateway-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coraza-sentry-log-forwarder
+  template:
+    metadata:
+      labels:
+        app: coraza-sentry-log-forwarder
+    spec:
+      serviceAccountName: coraza-sentry-log-forwarder
+      containers:
+        - name: forwarder
+          image: your-registry/coraza-sentry-log-forwarder:latest
+          env:
+            - name: SENTRY_DSN
+              value: "YOUR_SENTRY_DSN_HERE"
+            - name: POD_NAMESPACE
+              value: "envoy-gateway-system"
+            - name: POD_LABEL_SELECTOR
+              value: "gateway.envoyproxy.io/owning-gateway-name=my-gateway"
+            - name: CONTAINER_NAME
+              value: "envoy"
+            # Optional: map hostnames to Sentry environments
+            # - name: HOSTNAME_ENVIRONMENT_MAP
+            #   value: '{"staging.example.com":"staging","app.example.com":"production"}'
+            # Optional: fallback Sentry environment when hostname map doesn't match
+            # - name: SENTRY_ENVIRONMENT
+            #   value: "production"
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "pgrep -f 'node.*index' > /dev/null"
+            initialDelaySeconds: 10
+            periodSeconds: 30
