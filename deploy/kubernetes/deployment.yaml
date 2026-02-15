@@ -51,7 +51,7 @@ spec:
       serviceAccountName: coraza-sentry-log-forwarder
       containers:
         - name: forwarder
-          image: your-registry/coraza-sentry-log-forwarder:latest
+          image: ghcr.io/bbatchelder/coraza-sentry-log-forwarder:0.2.0
           env:
             - name: SENTRY_DSN
               value: "YOUR_SENTRY_DSN_HERE"

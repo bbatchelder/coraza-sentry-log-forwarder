@@ -4,6 +4,20 @@ Forward [Coraza WAF](https://coraza.io/) events from [Envoy Gateway](https://gat
 
 Runs as a sidecar deployment in your Kubernetes cluster, tailing Envoy container logs for Coraza WAF output, parsing the events, enriching them with access log data (hostname, environment), and forwarding them to Sentry as structured log entries.
 
+## Screenshots
+
+### Sentry Logs View
+
+Filter WAF events in Sentry's Logs explorer using `log.type contains waf`:
+
+![WAF Events Log](images/waf_events_logs.png)
+
+### Custom Dashboard
+
+Build dashboards to visualize WAF detections by attack category, block vs detect actions, and events by site:
+
+![WAF Events Dashboard](images/waf_events_dashboard.png)
+
 ## How It Works
 
 1. **Pod discovery** — Watches the Kubernetes API for pods matching a label selector (defaults to any Envoy Gateway pod). Automatically picks up new pods and cleans up when pods are removed.
@@ -67,18 +81,21 @@ The manifest uses `envoy-gateway-system` as the namespace. Adjust if your Envoy 
 - Update the container image to your registry
 - Optionally set `HOSTNAME_ENVIRONMENT_MAP` and `SENTRY_ENVIRONMENT`
 
-## Docker
+## Container Image
+
+Pre-built multi-arch images (linux/amd64, linux/arm64) are available on GitHub Container Registry:
+
+```
+ghcr.io/bbatchelder/coraza-sentry-log-forwarder
+```
 
 ```bash
-# Build
-docker build -t coraza-sentry-log-forwarder .
-
 # Run (requires kubeconfig mounted)
 docker run \
   -e SENTRY_DSN=https://your-dsn@sentry.io/12345 \
   -e HOSTNAME_ENVIRONMENT_MAP='{"app.example.com":"production"}' \
   -v ~/.kube:/home/tailer/.kube:ro \
-  coraza-sentry-log-forwarder
+  ghcr.io/bbatchelder/coraza-sentry-log-forwarder:latest
 ```
 
 ## Building from Source
