@@ -26,6 +26,8 @@ describe("parseCorazaLog", () => {
     );
     expect(result!.action).toBe("detect");
     expect(result!.uniqueId).toBe("abc123");
+    expect(result!.tags).toEqual(["attack-sqli"]);
+    expect(result!.attackCategory).toBe("sqli");
   });
 
   it("parses a Coraza WAF block (interruption) log line", () => {
@@ -58,6 +60,62 @@ describe("parseCorazaLog", () => {
     const result = parseCorazaLog(line);
     expect(result).not.toBeNull();
     expect(result!.crsVersion).toBe("OWASP_CRS/4.14.0");
+  });
+
+  it("extracts tags and derives attackCategory from attack-* tag", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "942100"] [msg "SQL Injection Attack Detected"] [tag "application-multi"] [tag "language-multi"] [tag "attack-sqli"] [tag "paranoia-level/1"] [tag "OWASP_CRS"] [uri "/test"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.tags).toEqual([
+      "application-multi",
+      "language-multi",
+      "attack-sqli",
+      "paranoia-level/1",
+      "OWASP_CRS",
+    ]);
+    expect(result!.attackCategory).toBe("sqli");
+  });
+
+  it("derives attackCategory from rule ID when no attack-* tag present", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "932100"] [msg "Remote Command Execution"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.tags).toBeUndefined();
+    expect(result!.attackCategory).toBe("rce");
+  });
+
+  it("derives attackCategory from rule ID for XSS rules", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "941100"] [msg "XSS Attack Detected"] [uri "/q"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.attackCategory).toBe("xss");
+  });
+
+  it("derives attackCategory from rule ID for LFI rules", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "930100"] [msg "OS File Access Attempt"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.attackCategory).toBe("lfi");
+  });
+
+  it("prefers attack-* tag over rule ID fallback", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "942100"] [msg "SQL Injection"] [tag "attack-sqli"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.attackCategory).toBe("sqli");
+  });
+
+  it("leaves attackCategory undefined for unknown rule ID ranges", () => {
+    const line = `[error][wasm] wasm log envoy-gateway-system.my-gateway coraza-waf: [client "1.2.3.4"] Coraza: Warning. [id "999100"] [msg "Custom Rule"]`;
+
+    const result = parseCorazaLog(line);
+    expect(result).not.toBeNull();
+    expect(result!.attackCategory).toBeUndefined();
   });
 });
 

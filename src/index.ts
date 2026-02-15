@@ -75,11 +75,13 @@ const HOSTNAME_TO_ENVIRONMENT = parseHostnameMap();
 
 function handleWafEvent(event: EnrichedWafEvent, podName: string): void {
   const attrs: Record<string, unknown> = {
+    "log.type": "waf",
     rule_id: event.ruleId,
     rule_msg: event.message,
     client_ip: event.clientIp,
     action: event.action,
     pod: podName,
+    ...(event.attackCategory && { attack_category: event.attackCategory }),
     ...(event.uri && { uri: event.uri }),
     ...(event.hostname && { hostname: event.hostname }),
     ...(event.severity && { severity: event.severity }),

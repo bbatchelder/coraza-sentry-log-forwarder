@@ -9,6 +9,8 @@ export interface WafEvent {
   matchedData?: string;
   crsVersion?: string;
   uniqueId?: string;
+  tags?: string[];
+  attackCategory?: string;
 }
 
 export interface AccessLogEntry {
@@ -19,6 +21,22 @@ export interface AccessLogEntry {
 
 const CORAZA_MARKER = "coraza-waf";
 const BLOCK_PATTERN = /Access denied/;
+const TAG_PATTERN = /\[tag "([^"]+)"\]/g;
+
+// CRS rule ID prefix → attack category fallback (when no attack-* tag is present)
+const RULE_ID_CATEGORY: Record<string, string> = {
+  "920": "protocol-violation",
+  "921": "protocol-attack",
+  "930": "lfi",
+  "931": "rfi",
+  "932": "rce",
+  "933": "injection-php",
+  "934": "injection-nodejs",
+  "941": "xss",
+  "942": "sqli",
+  "943": "session-fixation",
+  "944": "java-attack",
+};
 
 const FIELD_PATTERNS: Record<string, RegExp> = {
   ruleId: /\[id "([^"]+)"\]/,
@@ -67,6 +85,27 @@ export function parseCorazaLog(line: string): WafEvent | null {
 
   const uidMatch = line.match(FIELD_PATTERNS.uniqueId);
   if (uidMatch) event.uniqueId = uidMatch[1];
+
+  // Extract all [tag "..."] values
+  const tags: string[] = [];
+  for (const m of line.matchAll(TAG_PATTERN)) {
+    tags.push(m[1]);
+  }
+  if (tags.length > 0) {
+    event.tags = tags;
+    // Derive attack category from the first "attack-*" tag
+    const attackTag = tags.find((t) => t.startsWith("attack-"));
+    if (attackTag) {
+      event.attackCategory = attackTag.slice("attack-".length);
+    }
+  }
+
+  // Fallback: derive category from rule ID prefix if no attack-* tag was found
+  if (!event.attackCategory) {
+    const prefix = event.ruleId.slice(0, 3);
+    const category = RULE_ID_CATEGORY[prefix];
+    if (category) event.attackCategory = category;
+  }
 
   return event;
 }
