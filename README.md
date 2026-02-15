@@ -2,7 +2,7 @@
 
 Forward [Coraza WAF](https://coraza.io/) events from [Envoy Gateway](https://gateway.envoyproxy.io/) pods to [Sentry Structured Logs](https://docs.sentry.io/product/explore/logs/).
 
-Runs as a sidecar deployment in your Kubernetes cluster, tailing Envoy container logs for Coraza WAF output, parsing the events, enriching them with access log data (hostname, environment), and forwarding them to Sentry as structured log entries.
+Runs as a lightweight log collector in your Kubernetes cluster, tailing Envoy container logs via the Kubernetes API for Coraza WAF output, parsing the events, enriching them with access log data (hostname, environment), and forwarding them to Sentry as structured log entries.
 
 ## Screenshots
 
